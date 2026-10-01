@@ -1,0 +1,1 @@
+{"ok":false,"error":{"message":"Failed to get option value 6 on DHCP server DHCP01.","category":"NotSpecified","id":"DHCP 20010,Get-DhcpServerv4OptionValue","command":"Get-DhcpServerv4OptionValue"}}

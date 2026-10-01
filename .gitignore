@@ -1,0 +1,24 @@
+# Binaries
+terraform-provider-windowsddi
+/dist/
+*.exe
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+
+# Test and tooling output
+coverage.out
+*.test
+.idea/
+.vscode/
+.DS_Store
+
+# Local Claude Code state
+.claude/
+
+# Local release notes (kept off GitHub)
+RELEASING.md

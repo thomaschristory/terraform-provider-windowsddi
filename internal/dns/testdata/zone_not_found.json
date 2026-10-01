@@ -1,0 +1,1 @@
+{"ok":false,"error":{"message":"The zone nope.example was not found on server DNS01.","category":"ObjectNotFound","id":"WIN32 9601,Get-DnsServerZone","command":"Get-DnsServerZone"}}

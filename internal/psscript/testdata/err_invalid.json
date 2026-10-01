@@ -1,0 +1,1 @@
+{"ok":false,"error":{"message":"Failed to add scope 10.1.2.0 on DHCP server DHCP01. The specified subnet already exists on the DHCP server.","category":"InvalidArgument","id":"DHCP 20052,Add-DhcpServerv4Scope","command":"Add-DhcpServerv4Scope"}}

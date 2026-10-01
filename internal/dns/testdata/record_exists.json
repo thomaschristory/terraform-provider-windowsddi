@@ -1,0 +1,1 @@
+{"ok":false,"error":{"message":"Failed to create resource record www in zone corp.example.com on server DNS01.","category":"ResourceExists","id":"WIN32 9711,Add-DnsServerResourceRecordA","command":"Add-DnsServerResourceRecordA"}}

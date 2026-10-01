@@ -1,0 +1,1 @@
+{"ok":true,"data":{"scope_id":"10.1.20.0","name":"Users VLAN 120","description":"","start_range":"10.1.20.10","end_range":"10.1.20.250","subnet_mask":"255.255.255.0","state":"Active","type":"Dhcp","lease_duration":"8.00:00:00"}}

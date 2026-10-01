@@ -1,0 +1,1 @@
+{"ok":true,"data":{"name":"partner.example","zone_type":"Forwarder","is_ds_integrated":false,"is_reverse_lookup_zone":false,"is_auto_created":false,"replication_scope":"","zone_file":"","dynamic_update":"","master_servers":["10.0.0.53"],"forwarder_timeout":5}}

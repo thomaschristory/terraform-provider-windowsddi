@@ -1,0 +1,1 @@
+{"ok":false,"error":{"message":"Failed to delete scope 10.1.20.0 on DHCP server DHCP01. The specified DHCP element has been used by a client and cannot be removed.","category":"NotSpecified","id":"DHCP 20007,Remove-DhcpServerv4Scope","command":"Remove-DhcpServerv4Scope"}}

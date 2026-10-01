@@ -1,0 +1,1 @@
+{"ok":false,"error":{"message":"Failed to get information for scope 10.9.9.0 on DHCP server DHCP01.","category":"ObjectNotFound","id":"DHCP 20005,Get-DhcpServerv4Scope","command":"Get-DhcpServerv4Scope"}}

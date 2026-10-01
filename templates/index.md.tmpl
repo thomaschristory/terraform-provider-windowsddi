@@ -1,0 +1,65 @@
+---
+page_title: "Provider: Windows DDI"
+description: |-
+  Manage Microsoft Windows Server DHCP (IPv4) and DNS: scopes, reservations, exclusion ranges, option values, zones, conditional forwarders and record sets.
+---
+
+# Windows DDI Provider
+
+Manage Microsoft Windows Server DHCP (IPv4) and DNS with Terraform, with import support so existing servers can be adopted:
+
+- DHCP: scopes, reservations, exclusion ranges and option values.
+- DNS: primary zones (forward and reverse, file-backed or AD-integrated), conditional forwarders and record sets (A, AAAA, CNAME, PTR, MX, SRV, TXT).
+
+The provider runs the `DhcpServer` and `DnsServer` PowerShell cmdlets on a Windows host over SSH or WinRM. Nothing is installed on the server.
+
+## Requirements
+
+- Windows Server 2016 or later with the DHCP Server and/or DNS Server role (or a management host with the RSAT tools, see `dhcp_server` and `dns_server`).
+- OpenSSH Server (recommended) or WinRM enabled on the host.
+- An account in `DHCP Administrators` to manage DHCP and in `DnsAdmins` to manage DNS.
+- Terraform 1.5 or later.
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+## Transports
+
+### SSH (default)
+
+Install and start OpenSSH Server on the Windows host:
+
+```powershell
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType Automatic
+```
+
+The host key is verified. Either add the host to your `known_hosts` file (`ssh-keyscan dhcp01.example.local >> ~/.ssh/known_hosts`), or pin it with `ssh_host_key`. `insecure = true` disables the check and is only meant for labs.
+
+Password and public key authentication are supported. The default shell of the SSH server does not matter: the provider always starts `powershell.exe` itself.
+
+### WinRM
+
+WinRM over HTTPS (port 5986) with NTLM is the default when `transport = "winrm"`. Basic and Kerberos authentication are also available with `winrm_auth`. Kerberos uses the password of `username` and reads realm settings from `kerberos_config` (default `/etc/krb5.conf`).
+
+When connecting to a management host and targeting another server with `dhcp_server` or `dns_server`, credentials may not be delegated (Kerberos double hop). Connecting directly to the server that runs the role avoids this.
+
+## DHCP and DNS on different servers
+
+One provider block talks to one host. When DNS runs on a domain controller and DHCP on another server, or each needs a different account, declare two aliased provider blocks (`alias = "dhcp"`, `alias = "dns"`), each with `host` pointing at the right server, and set `provider = windowsddi.dns` on the DNS resources.
+
+## AD-integrated zones
+
+AD-integrated zones replicate between domain controllers. Point the provider at one DC and keep it there: a read against another DC can briefly show drift until replication catches up.
+
+## DHCP failover
+
+If scopes are in a failover relationship, manage them on one partner only and let replication run, or run `Invoke-DhcpServerv4FailoverReplication` after applying.
+
+## Environment variables
+
+Every provider attribute can be set with an environment variable named `WINDOWSDDI_` followed by the attribute name in upper case, for example `WINDOWSDDI_HOST`, `WINDOWSDDI_PASSWORD` or `WINDOWSDDI_KERBEROS_REALM`. Values in the configuration take precedence.
+
+{{ .SchemaMarkdown | trimspace }}

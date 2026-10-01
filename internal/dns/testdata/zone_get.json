@@ -1,0 +1,1 @@
+{"ok":true,"data":{"name":"corp.example.com","zone_type":"Primary","is_ds_integrated":true,"is_reverse_lookup_zone":false,"is_auto_created":false,"replication_scope":"Domain","zone_file":"","dynamic_update":"Secure","master_servers":[],"forwarder_timeout":0}}

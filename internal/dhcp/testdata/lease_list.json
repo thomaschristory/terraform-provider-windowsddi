@@ -1,0 +1,1 @@
+{"ok":true,"data":[{"ip_address":"10.1.20.11","scope_id":"10.1.20.0","client_id":"00-11-22-33-44-55","host_name":"pc01.example.local","address_state":"Active","lease_expiry_time":"2026-10-09T08:00:00Z","description":"","client_type":"Dhcp"}]}

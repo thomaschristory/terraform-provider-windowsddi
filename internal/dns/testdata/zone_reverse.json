@@ -1,0 +1,1 @@
+{"ok":true,"data":{"name":"2.1.10.in-addr.arpa","zone_type":"Primary","is_ds_integrated":false,"is_reverse_lookup_zone":true,"is_auto_created":false,"replication_scope":"","zone_file":"2.1.10.in-addr.arpa.dns","dynamic_update":"None","master_servers":[],"forwarder_timeout":0}}
