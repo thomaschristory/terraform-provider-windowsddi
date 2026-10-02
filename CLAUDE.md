@@ -54,6 +54,7 @@ internal/
   acctest/           test helpers: provider factories (fake or real server), per-service PreChecks
 examples/            HCL examples consumed by tfplugindocs
 templates/           tfplugindocs templates (index page)
+scripts/             lab-setup.ps1: prepares a Windows Server for the acceptance tests (run on the server, see docs/LAB_SETUP.md)
 docs/                DESIGN.md, ROADMAP.md, adr/ (hand-written); generated Registry docs live under docs/resources, docs/data-sources
 ```
 

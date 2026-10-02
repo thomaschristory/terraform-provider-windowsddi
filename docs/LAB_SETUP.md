@@ -52,6 +52,14 @@ Sizing: 2 vCPU, 4 GB RAM, 40 GB disk. Give it a fixed IP or DNS name.
 
 ## 3. Install and prepare the DHCP and DNS roles
 
+> Shortcut: [`scripts/lab-setup.ps1`](../scripts/lab-setup.ps1) runs every command in sections 3 to 6 for you and is safe to rerun. Copy it to the server and run it in an elevated PowerShell session:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope Process Bypass -Force; .\lab-setup.ps1    # add -SkipDns for DHCP only
+> ```
+>
+> It asks for the `svc-terraform` password, then prints the service states, the server's IPv4 addresses and its SSH host key fingerprints. Continue at [section 7](#7-check-from-your-machine). The sections below explain each step, for doing it by hand or debugging.
+
 ```powershell
 # Install the DHCP Server role and its PowerShell module (DhcpServer).
 Install-WindowsFeature DHCP -IncludeManagementTools

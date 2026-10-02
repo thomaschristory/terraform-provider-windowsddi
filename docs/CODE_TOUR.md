@@ -214,6 +214,7 @@ Tests live next to the code in files ending in `_test.go`. A test is a function 
 | `internal/acctest/` | Shared test helpers (provider wired to a fake server, or to a real server for acceptance tests). |
 | `examples/` | HCL examples. They are copied into the Registry docs. |
 | `templates/` | Template for the Registry front page (`docs/index.md`). |
+| `scripts/` | `lab-setup.ps1`: prepares a Windows Server for the acceptance tests. Runs on the server, not here (see `LAB_SETUP.md`). |
 | `docs/` | `DESIGN.md`, `ROADMAP.md`, `LAB_SETUP.md`, `adr/`, this file (hand written); `index.md`, `resources/`, `data-sources/` (generated, do not edit). |
 | `.github/workflows/` | CI (`test.yml`) and the signed release on tag (`release.yml`). |
 | `.goreleaser.yml` | How release binaries are built, zipped, checksummed and signed. |
