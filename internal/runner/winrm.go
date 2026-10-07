@@ -5,8 +5,6 @@
 
 package runner
 
-// Go note: "soap" is a sub-package of the winrm library; it is imported for
-// the SoapMessage type used by the custom NTLM transport at the end.
 import (
 	"bytes"
 	"context"
@@ -16,7 +14,6 @@ import (
 	"time"
 
 	"github.com/masterzen/winrm"
-	"github.com/masterzen/winrm/soap"
 )
 
 // WinRM authentication types, as accepted by the provider's winrm_auth
@@ -62,11 +59,12 @@ type WinRM struct {
 // NewWinRM validates cfg and returns a WinRM runner. It does not connect.
 //
 // Its main job is choosing the transport that matches the auth mode:
-//   - ntlm over HTTPS: the library's standard NTLM client (TLS protects the
-//     traffic).
-//   - ntlm over HTTP: NTLM with message-level encryption (ntlmEncryption
-//     below), so the server can keep AllowUnencrypted = false, which is the
-//     Windows default and the secure setting.
+//   - ntlm: ntlmPerCall (winrm_ntlm.go). Every call gets its own connection
+//     and NTLM session, because NTLM authenticates a TCP connection and the
+//     library's shared clients break when calls run concurrently. Over HTTPS
+//     TLS protects the traffic; over HTTP the messages are sealed with the
+//     NTLM session key, so the server can keep AllowUnencrypted = false,
+//     which is the Windows default and the secure setting.
 //   - basic: the library's default transport. Basic sends the password in
 //     every request, so it should only be used over HTTPS (and the server
 //     must enable Basic auth, local accounts only).
@@ -109,12 +107,10 @@ func NewWinRM(cfg WinRMConfig) (*WinRM, error) {
 	// "break" is needed; "default" catches everything else.
 	switch cfg.Auth {
 	case WinRMAuthNTLM:
-		if cfg.HTTPS {
-			params.TransportDecorator = func() winrm.Transporter { return &winrm.ClientNTLM{} }
-		} else {
-			// Plain HTTP: encrypt the SOAP messages so the server does not
-			// need AllowUnencrypted.
-			params.TransportDecorator = func() winrm.Transporter { return &ntlmEncryption{} }
+		// Over plain HTTP the SOAP messages are sealed (encrypt), so the
+		// server does not need AllowUnencrypted.
+		params.TransportDecorator = func() winrm.Transporter {
+			return &ntlmPerCall{user: cfg.Username, password: cfg.Password, encrypt: !cfg.HTTPS}
 		}
 	case WinRMAuthBasic:
 		// default transport
@@ -195,41 +191,4 @@ func (w *WinRM) exec(ctx context.Context, cmdline, stdin string) ([]byte, []byte
 		return nil, nil, 0, err
 	}
 	return stdout.Bytes(), stderr.Bytes(), code, nil
-}
-
-// ntlmEncryption gives every request its own winrm.Encryption. A shared one
-// is unsafe: Post rewrites its NTLM state, and a single command sends stdin
-// and polls stdout concurrently. Post performs the NTLM handshake per
-// message anyway, so nothing is lost.
-//
-// (Concretely: the library sends the stdin and the "receive output"
-// requests from separate goroutines. With one shared Encryption, those
-// requests could overwrite each other's NTLM state, which shows up as
-// intermittent decryption or authentication failures.)
-//
-// It implements the library's winrm.Transporter interface (the Transport
-// and Post methods below).
-type ntlmEncryption struct {
-	endpoint *winrm.Endpoint
-}
-
-// Transport is called once by the library with the endpoint; it is only
-// remembered here, because the real per-request setup happens in Post.
-func (t *ntlmEncryption) Transport(endpoint *winrm.Endpoint) error {
-	t.endpoint = endpoint
-	return nil
-}
-
-// Post sends one SOAP request: it builds a fresh NTLM encryption
-// transport, points it at the endpoint, and delegates the actual (encrypted)
-// HTTP exchange to it.
-func (t *ntlmEncryption) Post(c *winrm.Client, request *soap.SoapMessage) (string, error) {
-	enc, err := winrm.NewEncryption("ntlm")
-	if err != nil {
-		return "", err
-	}
-	if err := enc.Transport(t.endpoint); err != nil {
-		return "", err
-	}
-	return enc.Post(c, request)
 }
