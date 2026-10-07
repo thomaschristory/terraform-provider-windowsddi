@@ -24,6 +24,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -162,6 +163,33 @@ func TestKerberosUser(t *testing.T) {
 		if got := kerberosUser(in); got != want {
 			t.Errorf("kerberosUser(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestNewWinRMDisablesSharedKeepAlives checks that NTLM over plain HTTP turns
+// off connection reuse on http.DefaultTransport (the transport winrm.Encryption
+// uses), which avoids intermittent "EOF" errors from stale pooled connections.
+func TestNewWinRMDisablesSharedKeepAlives(t *testing.T) {
+	tr, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		t.Skip("http.DefaultTransport is not an *http.Transport")
+	}
+	// Reset the one-shot guard and the setting so the test is order independent.
+	keepAliveOnce = sync.Once{}
+	tr.DisableKeepAlives = false
+	t.Cleanup(func() { tr.DisableKeepAlives = false; keepAliveOnce = sync.Once{} })
+
+	if _, err := NewWinRM(WinRMConfig{Host: "h", Username: "u", Password: "p", HTTPS: true}); err != nil {
+		t.Fatal(err)
+	}
+	if tr.DisableKeepAlives {
+		t.Error("ntlm over https must leave keep-alives alone")
+	}
+	if _, err := NewWinRM(WinRMConfig{Host: "h", Username: "u", Password: "p", HTTPS: false}); err != nil {
+		t.Fatal(err)
+	}
+	if !tr.DisableKeepAlives {
+		t.Error("ntlm over http must disable keep-alives on the shared transport")
 	}
 }
 
