@@ -11,6 +11,10 @@ FEATURES:
 * Provider: `dns_server` to manage a DNS server through a management host.
 * Provider: clear error when the `DhcpServer` or `DnsServer` PowerShell module is missing on the host.
 
+BUG FIXES:
+
+* WinRM: fix intermittent `winrm: running PowerShell: EOF` errors with NTLM over HTTP, caused by stale pooled HTTP connections.
+
 ## 0.1.0 (Unreleased)
 
 FEATURES:
