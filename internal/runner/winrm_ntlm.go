@@ -149,7 +149,7 @@ func (t *ntlmPerCall) exchange(hc *ntlmhttp.Client, endpoint, contentType string
 	if err != nil {
 		return "", fmt.Errorf("unknown error %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("error while reading response body: %w", err)
@@ -197,7 +197,9 @@ func seal(session *ntlmssp.SecuritySession, message []byte) ([]byte, error) {
 	fmt.Fprintf(&b, "\tOriginalContent: type=%s;Length=%d\r\n", soapContentType, len(message))
 	b.WriteString(sealBoundary + "\r\n")
 	b.WriteString("\tContent-Type: application/octet-stream\r\n")
-	_ = binary.Write(&b, binary.LittleEndian, uint32(len(signature))) // writes to a Buffer cannot fail
+	// An NTLM signature is 16 bytes, so the conversion cannot overflow, and
+	// writes to a bytes.Buffer cannot fail.
+	_ = binary.Write(&b, binary.LittleEndian, uint32(len(signature))) //nolint:gosec
 	b.Write(signature)
 	b.Write(sealed)
 	b.WriteString(sealBoundary + "--\r\n")
