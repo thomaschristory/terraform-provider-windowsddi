@@ -13,7 +13,7 @@ FEATURES:
 
 BUG FIXES:
 
-* WinRM: fix intermittent `winrm: running PowerShell: EOF` errors with NTLM over HTTP, caused by stale pooled HTTP connections.
+* WinRM: fix intermittent errors with NTLM (`EOF`, `401 - invalid content type`, empty output, calls that never return) when several calls run at once. Each call now uses its own connection and NTLM session, over HTTP and HTTPS. NTLM over HTTP keeps sealing every message.
 
 ## 0.1.0 (Unreleased)
 
