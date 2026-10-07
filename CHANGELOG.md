@@ -13,7 +13,7 @@ FEATURES:
 
 BUG FIXES:
 
-* WinRM: fix intermittent errors with NTLM (`EOF`, `401 - invalid content type`, empty output, calls that never return) when several calls run at once. Each call now uses its own connection and NTLM session, over HTTP and HTTPS. NTLM over HTTP keeps sealing every message.
+* WinRM: fix intermittent errors with NTLM (`EOF`, `401 - invalid content type`, empty output, calls that never return) when several calls run at once. Each call now uses its own connection and NTLM session, over HTTP and HTTPS. NTLM over HTTP keeps sealing every message, refuses unencrypted replies, and reports WinRM faults instead of polling forever.
 
 ## 0.1.0 (Unreleased)
 

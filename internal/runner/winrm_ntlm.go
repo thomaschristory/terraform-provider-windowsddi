@@ -90,6 +90,13 @@ func (t *ntlmPerCall) Post(_ *winrm.Client, request *soap.SoapMessage) (string, 
 	// Encryption is not enabled here: it would replace the body without
 	// updating the request's Content-Length. This client only handles the
 	// handshake; sealing is done below.
+	//
+	// Caveat: ntlmhttp.Client.Do neither reads nor closes the bodies of the
+	// 401 answers in the handshake. Windows (HTTP.sys) sends them empty, so
+	// the connection is reused; a 401 with a body (from a proxy, for example)
+	// would push the next handshake step onto a new connection and fail. The
+	// transport cannot be wrapped to drain them, because NewClient asserts
+	// that it is an *http.Transport.
 	hc, err := ntlmhttp.NewClient(&http.Client{Transport: tr}, nc)
 	if err != nil {
 		return "", fmt.Errorf("ntlm: %w", err)
@@ -133,9 +140,8 @@ func (t *ntlmPerCall) url() string {
 }
 
 // exchange POSTs body and returns the response body. When session is not nil
-// a sealed response is unsealed with it. Like the library, a SOAP fault that
-// comes back with an error status is returned as the body so winrm can parse
-// it; any other non-200 answer is an error.
+// the request was sealed, and the response must be sealed too; see reply for
+// how statuses and content types are handled.
 func (t *ntlmPerCall) exchange(hc *ntlmhttp.Client, endpoint, contentType string, body io.Reader, session *ntlmssp.SecuritySession) (string, error) {
 	req, err := http.NewRequest(http.MethodPost, endpoint, body) //nolint:noctx
 	if err != nil {
@@ -155,18 +161,47 @@ func (t *ntlmPerCall) exchange(hc *ntlmhttp.Client, endpoint, contentType string
 		return "", fmt.Errorf("error while reading response body: %w", err)
 	}
 
-	if session != nil && strings.Contains(resp.Header.Get("Content-Type"), `protocol="`+sealProtocol+`"`) {
-		plain, err := unseal(session, data)
+	var open func([]byte) ([]byte, error)
+	if session != nil {
+		open = func(b []byte) ([]byte, error) { return unseal(session, b) }
+	}
+	return reply(resp.StatusCode, resp.Header.Get("Content-Type"), data, body != nil, open)
+}
+
+// reply turns a response into what winrm.Transporter.Post returns. open is
+// nil for an unsealed exchange (the handshake, or HTTPS) and unseals the body
+// otherwise. wantSOAP is false for the empty handshake request, whose reply
+// has no SOAP body.
+//
+// The rules match the library's plain transport (clientRequest.Post), so
+// winrm behaves the same over HTTP and HTTPS:
+//   - a non-200 status is an error that carries the (unsealed) body. The
+//     library relies on this: an output poll that times out on the server
+//     comes back as a 500 SOAP fault mentioning "OperationTimeout", which it
+//     treats as "no output yet" and polls again. Any other fault (shell gone,
+//     quota exceeded) ends the command with the server's message. Returning a
+//     fault as a normal body instead makes winrm poll forever.
+//   - with sealing, an unsealed reply is refused even when its status is 200:
+//     accepting it would let anyone on the network path answer in plain text.
+func reply(status int, contentType string, data []byte, wantSOAP bool, open func([]byte) ([]byte, error)) (string, error) {
+	if open != nil {
+		if !strings.Contains(contentType, `protocol="`+sealProtocol+`"`) {
+			if status != http.StatusOK {
+				return "", fmt.Errorf("http error %d: %s", status, data)
+			}
+			return "", fmt.Errorf("http response error: %d - unencrypted reply to an encrypted request (content type %q)", status, contentType)
+		}
+		plain, err := open(data)
 		if err != nil {
 			return "", err
 		}
-		return string(plain), nil
+		data = plain
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("http error %d: %s", resp.StatusCode, data)
+	if status != http.StatusOK {
+		return "", fmt.Errorf("http error %d: %s", status, data)
 	}
-	if session == nil && body != nil && !strings.Contains(resp.Header.Get("Content-Type"), "application/soap+xml") {
-		return "", fmt.Errorf("http response error: %d - invalid content type", resp.StatusCode)
+	if open == nil && wantSOAP && !strings.Contains(contentType, "application/soap+xml") {
+		return "", fmt.Errorf("http response error: %d - invalid content type", status)
 	}
 	return string(data), nil
 }

@@ -1,16 +1,18 @@
 // Tests for the NTLM transport (winrm_ntlm.go). A full NTLM exchange needs a
 // Windows server (see docs/LAB_SETUP.md), so these cover what can be checked
 // without one: user name parsing, rejection of malformed encrypted replies,
-// and the connection handling that fixes the intermittent EOF, 401 and hang
-// errors.
+// how reply statuses and content types are handled, and the connection
+// handling that fixes the intermittent EOF, 401 and hang errors.
 
 package runner
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -48,6 +50,52 @@ func TestUnsealRejectsMalformed(t *testing.T) {
 	} {
 		if _, err := unseal(nil, []byte(body)); err == nil {
 			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+// TestReply checks how statuses and content types become Post results. The
+// "open" stub stands in for unsealing (a real NTLM session needs a server).
+func TestReply(t *testing.T) {
+	const (
+		soapCT   = "application/soap+xml;charset=UTF-8"
+		sealedCT = sealContentType
+		fault    = "<s:Fault>The WS-Management service cannot complete the operation within the time specified in OperationTimeout.</s:Fault>"
+	)
+	open := func(b []byte) ([]byte, error) { return []byte("plain:" + string(b)), nil }
+	failOpen := func([]byte) ([]byte, error) { return nil, errors.New("bad signature") }
+
+	for _, tc := range []struct {
+		name     string
+		status   int
+		ct       string
+		data     string
+		wantSOAP bool
+		open     func([]byte) ([]byte, error)
+		want     string // expected result when wantErr is empty
+		wantErr  string // substring of the expected error
+	}{
+		{name: "handshake ok", status: 200, wantSOAP: false, want: ""},
+		{name: "handshake 401", status: 401, wantErr: "http error 401"},
+		{name: "plain ok", status: 200, ct: soapCT, data: "<x/>", wantSOAP: true, want: "<x/>"},
+		{name: "plain wrong content type", status: 200, ct: "text/html", data: "<x/>", wantSOAP: true, wantErr: "invalid content type"},
+		{name: "plain fault is an error", status: 500, ct: soapCT, data: fault, wantSOAP: true, wantErr: "OperationTimeout"},
+		{name: "sealed ok", status: 200, ct: sealedCT, data: "x", wantSOAP: true, open: open, want: "plain:x"},
+		// The bug this guards against: a sealed fault returned as a normal
+		// body makes winrm poll for output forever.
+		{name: "sealed fault is an error with the unsealed body", status: 500, ct: sealedCT, data: fault, wantSOAP: true, open: open, wantErr: "http error 500: plain:<s:Fault>The WS-Management service cannot complete the operation within the time specified in OperationTimeout"},
+		{name: "sealed unseal failure", status: 200, ct: sealedCT, data: "x", wantSOAP: true, open: failOpen, wantErr: "bad signature"},
+		{name: "unsealed 200 after sealed request is refused", status: 200, ct: soapCT, data: "<forged/>", wantSOAP: true, open: open, wantErr: "unencrypted reply"},
+		{name: "unsealed error after sealed request", status: 401, ct: "", data: "", wantSOAP: true, open: open, wantErr: "http error 401"},
+	} {
+		got, err := reply(tc.status, tc.ct, []byte(tc.data), tc.wantSOAP, tc.open)
+		switch {
+		case tc.wantErr == "" && err != nil:
+			t.Errorf("%s: unexpected error %v", tc.name, err)
+		case tc.wantErr == "" && got != tc.want:
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+			t.Errorf("%s: got (%q, %v), want an error containing %q", tc.name, got, err, tc.wantErr)
 		}
 	}
 }
